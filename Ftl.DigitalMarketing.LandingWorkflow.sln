@@ -5,6 +5,8 @@ VisualStudioVersion = 17.2.32630.192
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ftl.DigitalMarketing.AzureFunctions", "Ftl.DigitalMarketing.AzureFunctions\Ftl.DigitalMarketing.AzureFunctions.csproj", "{F65A5C1E-D2EA-4076-9C5A-D2E0D166B39C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ftl.DigitalMarketing.RazorTemplates", "Ftl.DigitalMarketing.RazorTemplates\Ftl.DigitalMarketing.RazorTemplates.csproj", "{E48858B6-4C12-41CD-8CBD-E57D2C68891E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{F65A5C1E-D2EA-4076-9C5A-D2E0D166B39C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F65A5C1E-D2EA-4076-9C5A-D2E0D166B39C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F65A5C1E-D2EA-4076-9C5A-D2E0D166B39C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E48858B6-4C12-41CD-8CBD-E57D2C68891E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E48858B6-4C12-41CD-8CBD-E57D2C68891E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E48858B6-4C12-41CD-8CBD-E57D2C68891E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E48858B6-4C12-41CD-8CBD-E57D2C68891E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <AzureFunctionsVersion>v4</AzureFunctionsVersion>
@@ -9,6 +9,10 @@
     <PackageReference Include="Microsoft.Azure.WebJobs.Extensions.DurableTask" Version="2.7.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
     <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="4.1.1" />
+    <PackageReference Include="Razor.Templating.Core" Version="1.7.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Ftl.DigitalMarketing.RazorTemplates\Ftl.DigitalMarketing.RazorTemplates.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="host.json">
