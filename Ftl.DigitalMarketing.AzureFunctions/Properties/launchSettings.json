@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Ftl.DigitalMarketing.AzureFunctions": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 7136",
+      "launchBrowser": false
+    }
+  }
+}
