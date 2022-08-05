@@ -10,5 +10,6 @@ namespace Ftl.DigitalMarketing.AzureFunctions.Models
     {
         public int ContactId { get; set; }
         public string Email { get; set; }
+        public string InstanceId { get; set; }
     }
 }
