@@ -16,6 +16,8 @@ namespace Ftl.DigitalMarketing.AzureFunctions
     {
         public override void Configure(IFunctionsHostBuilder builder)
         {
+            builder.Services.AddHttpClient();
+
             builder.Services
                 .AddFluentEmail("noreply@josuefuentesdev.com")
                 .AddMailKitSender(new SmtpClientOptions

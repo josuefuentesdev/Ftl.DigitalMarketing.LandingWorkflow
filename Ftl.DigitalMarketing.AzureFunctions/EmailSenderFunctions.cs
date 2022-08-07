@@ -1,4 +1,5 @@
 ﻿using FluentEmail.Core;
+using Ftl.DigitalMarketing.ApiClientServices;
 using Ftl.DigitalMarketing.AzureFunctions.Models;
 using Ftl.DigitalMarketing.RazorTemplates;
 using Ftl.DigitalMarketing.RazorTemplates.Emails;
@@ -9,6 +10,7 @@ using Razor.Templating.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -17,15 +19,22 @@ namespace Ftl.DigitalMarketing.AzureFunctions
     public class EmailSenderFunctions
     {
         private IFluentEmail _fluentEmail;
+        private readonly HttpClient _http;
+        private BackofficeApiClient _backofficeClient;
 
-        public EmailSenderFunctions(IFluentEmail fluentEmail)
+        public EmailSenderFunctions(IFluentEmail fluentEmail, HttpClient http)
         {
             _fluentEmail = fluentEmail;
+            _http = http;
+            _backofficeClient = new("https://localhost:5001", _http);
         }
 
         [FunctionName("EmailSender_WelcomeEmail")]
-        public async Task<string> SendWelcomelEmail([ActivityTrigger] WorkflowOrchestratorRequest request, ILogger log)
+        public async Task<string> SendWelcomelEmail([ActivityTrigger] ExecutionContactRequest request, ILogger log)
         {
+            var contact = await _backofficeClient.GetContactByIdAsync(request.ContactId);
+            if (contact == null) return "ERROR-INVALID-CONTACT";
+
             string websiteHostname = Environment.GetEnvironmentVariable("WEBSITE_HOSTNAME");
             WelcomeEmailModel welcomeEmailModel = new();
             welcomeEmailModel.BuyActionUrl = $"http://{websiteHostname}/api/WelcomeEmail_BuyAction?instanceId={request.InstanceId}";
@@ -37,8 +46,8 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             Console.WriteLine(invoiceHtml);
 
             var response = await _fluentEmail
-                .To("josuefuentesdev@gmail.com")
-                .Subject("prueba")
+                .To(contact.Email)
+                .Subject("Welcome to Fictitel")
                 .Body(invoiceHtml, true)
                 .SendAsync();
 
@@ -47,8 +56,11 @@ namespace Ftl.DigitalMarketing.AzureFunctions
 
 
         [FunctionName("EmailSender_OrderDetailsEmail")]
-        public async Task<string> SendOrderDetailsEmail([ActivityTrigger] WorkflowOrchestratorRequest request, ILogger log)
+        public async Task<string> SendOrderDetailsEmail([ActivityTrigger] ExecutionContactRequest request, ILogger log)
         {
+            var contact = await _backofficeClient.GetContactByIdAsync(request.ContactId);
+            if (contact == null) return "ERROR-INVALID-CONTACT";
+            
             string websiteHostname = Environment.GetEnvironmentVariable("WEBSITE_HOSTNAME");
             WelcomeEmailModel welcomeEmailModel = new();
             welcomeEmailModel.BuyActionUrl = $"http://{websiteHostname}/api/WelcomeEmail_BuyAction?instanceId={request.InstanceId}";
@@ -60,8 +72,8 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             Console.WriteLine(invoiceHtml);
 
             var response = await _fluentEmail
-                .To("josuefuentesdev@gmail.com")
-                .Subject("prueba")
+                .To(contact.Email)
+                .Subject("Your order was confirmed")
                 .Body(invoiceHtml, true)
                 .SendAsync();
 

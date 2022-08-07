@@ -1,4 +1,5 @@
-﻿using Ftl.DigitalMarketing.AzureFunctions.Contract.Requests;
+﻿using Ftl.DigitalMarketing.ApiClientServices;
+using Ftl.DigitalMarketing.AzureFunctions.Contract.Requests;
 using Ftl.DigitalMarketing.AzureFunctions.Contract.Responses;
 using Ftl.DigitalMarketing.AzureFunctions.Models;
 using Ftl.DigitalMarketing.RazorTemplates.Pages;
@@ -23,18 +24,34 @@ namespace Ftl.DigitalMarketing.AzureFunctions
 {
     public class WorkflowOrchestrator
     {
+        private readonly HttpClient _http;
+        private BackofficeApiClient _backofficeClient;
+
+        public WorkflowOrchestrator(HttpClient http)
+        {
+            _http = http;
+            _backofficeClient = new("https://localhost:5001", _http);
+        }
+
         [FunctionName("WorkflowOrchestrator")]
-        public static async Task RunOrchestrator(
+        public async Task RunOrchestrator(
             [OrchestrationTrigger] IDurableOrchestrationContext context)
         {
+            WorkflowOrchestratorRequest request = context.GetInput<WorkflowOrchestratorRequest>();
+            int contactId = request.ContactId;
             context.SetCustomStatus(new
             {
-                stage = "START"
+                stage = "START",
+                contactId
             });
 
-            WorkflowOrchestratorRequest request = context.GetInput<WorkflowOrchestratorRequest>();
-
-            await context.CallActivityAsync("EmailSender_WelcomeEmail", request);
+            
+            ExecutionContactRequest executionContactRequest = new ExecutionContactRequest
+            {
+                ContactId = contactId,
+                InstanceId = context.InstanceId
+            };
+            await context.CallActivityAsync("EmailSender_WelcomeEmail", executionContactRequest);
 
 
             DateTime dueTime = context.CurrentUtcDateTime.AddMinutes(5);
@@ -49,31 +66,36 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             {
                 context.SetCustomStatus(new
                 {
-                    stage = "TIMEOUT"
+                    stage = "TIMEOUT",
+                    contactId
                 });
             }
             else if (welcomeEmailResult == welcomeEmailConsideredEvent)
             {
                 context.SetCustomStatus(new
                 {
-                    stage = "CONSIDER"
+                    stage = "CONSIDER",
+                    contactId
                 });
                 DateTime reminderTime = context.CurrentUtcDateTime.AddMinutes(5);
                 await context.CreateTimer(reminderTime, CancellationToken.None);
-                await context.CallActivityAsync("EmailSender_RemainderEmail", request);
+                await context.CallActivityAsync("EmailSender_RemainderEmail", executionContactRequest);
             }
             else if (welcomeEmailResult == welcomeEmailBuyedEvent)
             {
                 context.SetCustomStatus(new
                 {
-                    stage = "DECISION"
+                    stage = "DECISION",
+                    contactId
                 });
-                await context.CallActivityAsync("EmailSender_OrderDetailsEmail", request);
+                await context.CallActivityAsync("EmailSender_OrderDetailsEmail", executionContactRequest);
             }
         }
 
+        
+        
         [FunctionName("WorkflowOrchestrator_HttpStartFromLandingPage")]
-        public static async Task<HttpResponseMessage> HttpStart(
+        public async Task<HttpResponseMessage> HttpStart(
             [HttpTrigger(AuthorizationLevel.Anonymous, "post")] HttpRequestMessage req,
             [DurableClient] IDurableOrchestrationClient starter,
             ILogger log)
@@ -84,7 +106,13 @@ namespace Ftl.DigitalMarketing.AzureFunctions
 
             string instanceId = Guid.NewGuid().ToString();
             // do an api call to backoffice
-            int contactId = 100;
+            CreateContactDto contact = new()
+            {
+                Email = request.Email
+            };
+
+            var contactId = await _backofficeClient.CreateContactAsync(contact);
+            //int contactId = 100;
             log.LogInformation($"New ContactId = '{contactId}'.");
 
             // Start Workflow
@@ -107,7 +135,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions
         }
 
         [FunctionName("WelcomeEmail_BuyAction")]
-        public static async Task<HttpResponseMessage> BuyAction(
+        public async Task<HttpResponseMessage> BuyAction(
             [HttpTrigger(AuthorizationLevel.Anonymous, "get")] HttpRequest req,
             [DurableClient] IDurableOrchestrationClient client,
             ILogger log)
@@ -121,11 +149,17 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             {
                 if (status.CustomStatus["stage"].ToString() == "START")
                 {
-
+                    var contactId = Int32.Parse(status.CustomStatus["contactId"].ToString());
+                    CreateOrderDto createOrderDto = new()
+                    {
+                        ContactId = contactId,
+                        Status = "PENDING"
+                    };
+                    int orderId = await _backofficeClient.CreateOrderAsync(createOrderDto);
                     await client.RaiseEventAsync(instanceId, "WelcomeEmail_Buyed", true);
                     OrderReceived order = new()
                     {
-                        OrderId = 12345,
+                        OrderId = orderId,
                         LeavePageActionUrl = "https://www.samsung.com/us/smartphones/galaxy-z-fold3-5g/"
                     };
                     var invoiceHtml = await RazorTemplateEngine.RenderAsync("/Pages/OrderReceived.cshtml", order);
