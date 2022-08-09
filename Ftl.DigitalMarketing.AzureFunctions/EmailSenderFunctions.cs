@@ -21,12 +21,14 @@ namespace Ftl.DigitalMarketing.AzureFunctions
         private IFluentEmail _fluentEmail;
         private readonly HttpClient _http;
         private BackofficeApiClient _backofficeClient;
+        string websiteHostname;
 
         public EmailSenderFunctions(IFluentEmail fluentEmail, HttpClient http)
         {
             _fluentEmail = fluentEmail;
             _http = http;
             _backofficeClient = new("https://localhost:5001", _http);
+            websiteHostname = Environment.GetEnvironmentVariable("WEBSITE_HOSTNAME");
         }
 
         [FunctionName("EmailSender_WelcomeEmail")]
@@ -35,15 +37,14 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             var contact = await _backofficeClient.GetContactByIdAsync(request.ContactId);
             if (contact == null) return "ERROR-INVALID-CONTACT";
 
-            string websiteHostname = Environment.GetEnvironmentVariable("WEBSITE_HOSTNAME");
+
             WelcomeEmailModel welcomeEmailModel = new();
             welcomeEmailModel.BuyActionUrl = $"http://{websiteHostname}/api/WelcomeEmail_BuyAction?instanceId={request.InstanceId}";
-            welcomeEmailModel.AlternativeActionUrl = "";
+            welcomeEmailModel.AlternativeActionUrl = $"http://{websiteHostname}/api/WelcomeEmail_ConsiderAction?instanceId={request.InstanceId}";
             welcomeEmailModel.BrandUrl = "https://josuefuentesdev.com";
-            welcomeEmailModel.UnsuscribeUrl = "";
-            
+            welcomeEmailModel.UnsuscribeUrl = $"http://{websiteHostname}/api/UnsubscribeAction?instanceId={request.InstanceId}";
+
             var invoiceHtml = await RazorTemplateEngine.RenderAsync("/Emails/WelcomeEmail.cshtml", welcomeEmailModel);
-            Console.WriteLine(invoiceHtml);
 
             var response = await _fluentEmail
                 .To(contact.Email)
@@ -61,15 +62,30 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             var contact = await _backofficeClient.GetContactByIdAsync(request.ContactId);
             if (contact == null) return "ERROR-INVALID-CONTACT";
             
-            string websiteHostname = Environment.GetEnvironmentVariable("WEBSITE_HOSTNAME");
-            WelcomeEmailModel welcomeEmailModel = new();
-            welcomeEmailModel.BuyActionUrl = $"http://{websiteHostname}/api/WelcomeEmail_BuyAction?instanceId={request.InstanceId}";
-            welcomeEmailModel.AlternativeActionUrl = "";
-            welcomeEmailModel.BrandUrl = "https://josuefuentesdev.com";
-            welcomeEmailModel.UnsuscribeUrl = "";
+            OrderDetailsEmailModel orderEmailModel = new();
+            orderEmailModel.UnsuscribeUrl = $"http://{websiteHostname}/api/UnsubscribeAction?instanceId={request.InstanceId}";
 
-            var invoiceHtml = await RazorTemplateEngine.RenderAsync("/Emails/OrderDetailsEmail.cshtml", welcomeEmailModel);
-            Console.WriteLine(invoiceHtml);
+            var invoiceHtml = await RazorTemplateEngine.RenderAsync("/Emails/OrderDetailsEmail.cshtml", orderEmailModel);
+
+            var response = await _fluentEmail
+                .To(contact.Email)
+                .Subject("Your order was confirmed")
+                .Body(invoiceHtml, true)
+                .SendAsync();
+
+            return $"Hello {response.Successful} {response.MessageId}!";
+        }
+
+        [FunctionName("EmailSender_RemainderEmail")]
+        public async Task<string> SendRemainderEmail([ActivityTrigger] ExecutionContactRequest request, ILogger log)
+        {
+            var contact = await _backofficeClient.GetContactByIdAsync(request.ContactId);
+            if (contact == null) return "ERROR-INVALID-CONTACT";
+
+            RemainderEmailModel remainderEmailModel = new();
+            remainderEmailModel.UnsuscribeUrl = $"http://{websiteHostname}/api/UnsubscribeAction?instanceId={request.InstanceId}";
+
+            var invoiceHtml = await RazorTemplateEngine.RenderAsync("/Emails/RemainderEmail.cshtml", remainderEmailModel);
 
             var response = await _fluentEmail
                 .To(contact.Email)

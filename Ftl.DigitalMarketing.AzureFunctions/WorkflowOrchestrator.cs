@@ -45,7 +45,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions
                 contactId
             });
 
-            
+
             ExecutionContactRequest executionContactRequest = new ExecutionContactRequest
             {
                 ContactId = contactId,
@@ -92,8 +92,8 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             }
         }
 
-        
-        
+
+
         [FunctionName("WorkflowOrchestrator_HttpStartFromLandingPage")]
         public async Task<HttpResponseMessage> HttpStart(
             [HttpTrigger(AuthorizationLevel.Anonymous, "post")] HttpRequestMessage req,
@@ -170,52 +170,69 @@ namespace Ftl.DigitalMarketing.AzureFunctions
                     };
                 }
             }
+
+            if (status.CustomStatus["stage"].ToString() == "TIMEOUT")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("<html><body>The offer has expired</body></html>", Encoding.UTF8, "text/html")
+                };
+            }
+            else if (status.CustomStatus["stage"].ToString() == "CONSIDER")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("<html><body>You still has a chance to buy, call us to (0800) XXXXX.</body></html>", Encoding.UTF8, "text/html")
+                };
+            }
+            else if (status.CustomStatus["stage"].ToString() == "DECISION")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("<html><body>Product was bought. Please check your email for the order details.</body></html>", Encoding.UTF8, "text/html")
+                };
+            }
             else
             {
-                if (status.CustomStatus["stage"].ToString() == "TIMEOUT")
+                return new HttpResponseMessage(HttpStatusCode.OK)
                 {
-                    return new HttpResponseMessage(HttpStatusCode.OK)
-                    {
-                        Content = new StringContent("<html><body>The offer has expired</body></html>", Encoding.UTF8, "text/html")
-                    };
-                }
-                else if (status.CustomStatus["stage"].ToString() == "CONSIDER")
-                {
-                    return new HttpResponseMessage(HttpStatusCode.OK)
-                    {
-                        Content = new StringContent("<html><body>You still has a chance to buy, call us to (0800) XXXXX.</body></html>", Encoding.UTF8, "text/html")
-                    };
-                }
-                else if (status.CustomStatus["stage"].ToString() == "DECISION")
-                {
-                    return new HttpResponseMessage(HttpStatusCode.OK)
-                    {
-                        Content = new StringContent("<html><body>Product was bought. Please check your email for the order details.</body></html>", Encoding.UTF8, "text/html")
-                    };
-                }
-                else
-                {
-                    return new HttpResponseMessage(HttpStatusCode.OK)
-                    {
-                        Content = new StringContent("<html><body>Welcome Email was not bought. Please consider buying it.</body></html>", Encoding.UTF8, "text/html")
-                    };
-                }
+                    Content = new StringContent("<html><body>Welcome Email was not bought. Please consider buying it.</body></html>", Encoding.UTF8, "text/html")
+                };
             }
             // return error
             return new HttpResponseMessage(HttpStatusCode.InternalServerError);
         }
 
-        //[FunctionName("WelcomeEmail_ConsiderAction")]
-        //public static async Task<HttpResponseMessage> ConsiderAction(
-        //    [HttpTrigger(AuthorizationLevel.Anonymous, "get")] HttpRequest req,
-        //    [DurableClient] IDurableOrchestrationClient client,
-        //    ILogger log)
-        //{
-        //    string instanceId = req.Query["instanceId"];
+        [FunctionName("WelcomeEmail_ConsiderAction")]
+        public static async Task<HttpResponseMessage> ConsiderAction(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get")] HttpRequest req,
+            [DurableClient] IDurableOrchestrationClient client,
+            ILogger log)
+        {
+            string instanceId = req.Query["instanceId"];
 
-        //    await client.RaiseEventAsync(instanceId, "WelcomeEmail_Considered", true);
+            await client.RaiseEventAsync(instanceId, "WelcomeEmail_Considered", true);
 
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("<html><body>We will remaind you soon, stay tuned.</body></html>", Encoding.UTF8, "text/html")
+            };
+        }
 
-        //}
+        [FunctionName("UnsubscribeAction")]
+        public static async Task<HttpResponseMessage> UnsubscribeAction(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get")] HttpRequest req,
+            [DurableClient] IDurableOrchestrationClient client,
+            ILogger log)
+        {
+            string instanceId = req.Query["instanceId"];
+
+            await client.TerminateAsync(instanceId, "ClientUnsubscribe");
+            
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("<html><body>We will no longer send any marketing emails, only transactional ones when there are solicited.</body></html>", Encoding.UTF8, "text/html")
+            };
+        }
     }
 }

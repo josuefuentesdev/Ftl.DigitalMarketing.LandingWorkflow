@@ -1,4 +1,4 @@
-﻿@model Ftl.DigitalMarketing.RazorTemplates.Emails.OrderDetailsEmailModel
+﻿@model Ftl.DigitalMarketing.RazorTemplates.Emails.WelcomeEmailModel
 <!doctype html>
 <html>
   <head>
@@ -335,7 +335,7 @@
     </style>
   </head>
   <body>
-    <span class="preheader">Order Confirmed.</span>
+    <span class="preheader">Blazingly fast email.</span>
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="body">
       <tr>
         <td>&nbsp;</td>
@@ -352,8 +352,24 @@
                     <tr>
                       <td>
                         <p>Hi there,</p>
-                        <p>Thank you for your order</p>
-                        <p>We will start delivering orders in 2049, stay tuned.</p>
+                        <p>You are very close to enjoy the new experience of the 5G network, hurry up, because the stock is limited</p>
+                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="btn btn-primary">
+                          <tbody>
+                            <tr>
+                              <td align="left">
+                                <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                                  <tbody>
+                                    <tr>
+                                      <td> <a href="@Model.BuyActionUrl" target="_blank">Buy Now</a> </td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        <p></p>
+                        <p>Limited stock, may not last longer.</p>
                         <p>See ya.</p>
                       </td>
                     </tr>
@@ -376,7 +392,7 @@
                 </tr>
                 <tr>
                   <td class="content-block powered-by">
-                    Powered by <a href="https://josuefuentesdev.com">josuefuentesdev</a>
+                    Powered by <a href="https://josuefuentesdev.com">josuefuentesdev</a>.
                   </td>
                 </tr>
               </table>
