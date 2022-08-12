@@ -1,6 +1,7 @@
 ﻿using FluentEmail.MailKitSmtp;
 using MailKit.Security;
 using Microsoft.Azure.Functions.Extensions.DependencyInjection;
+using Microsoft.Azure.WebJobs.Extensions.DurableTask;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
@@ -17,7 +18,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions
         public override void Configure(IFunctionsHostBuilder builder)
         {
             builder.Services.AddHttpClient();
-
+            
             builder.Services
                 .AddFluentEmail("noreply@josuefuentesdev.com")
                 .AddMailKitSender(new SmtpClientOptions
