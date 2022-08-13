@@ -69,7 +69,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions
                 .SendAsync();
         }
 
-
+        
         [FunctionName("EmailSender_OrderDetailsEmail")]
         public async Task SendOrderDetailsEmail([ActivityTrigger] OrderDetailsEmailModel request, ILogger log)
         {
@@ -91,23 +91,24 @@ namespace Ftl.DigitalMarketing.AzureFunctions
         }
 
         [FunctionName("EmailSender_RemainderEmail")]
-        public async Task<string> SendRemainderEmail([ActivityTrigger] ExecutionContactRequest request, ILogger log)
+        public async Task SendRemainderEmail([ActivityTrigger] ExecutionContactRequest request, ILogger log)
         {
             var contact = await _backofficeClient.GetContactByIdAsync(request.ContactId);
-            if (contact == null) return "ERROR-INVALID-CONTACT";
+            if (contact == null) return;
 
             RemainderEmailModel remainderEmailModel = new();
             remainderEmailModel.UnsuscribeUrl = $"http://{websiteHostname}/api/UnsubscribeAction?instanceId={request.InstanceId}";
-
+            remainderEmailModel.BuyActionUrl = $"http://{websiteHostname}/api/WelcomeEmail_BuyAction?instanceId={request.InstanceId}";
+            remainderEmailModel.BrandUrl = "https://josuefuentesdev.com";
+            
             var invoiceHtml = await RazorTemplateEngine.RenderAsync("/Emails/RemainderEmail.cshtml", remainderEmailModel);
 
             var response = await _fluentEmail
                 .To(contact.Email)
-                .Subject("Your order was confirmed")
+                .Subject("You are very close, to be blazingly fast...")
                 .Body(invoiceHtml, true)
                 .SendAsync();
 
-            return $"Hello {response.Successful} {response.MessageId}!";
         }
     }
 }

@@ -11,6 +11,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions.DurableEntities
     public interface IExecutionContact
     {
         public void SetContactId(int contactId);
+        public void expireOffer();
         public Task SetOrderId(int orderId);
         public void Notify(ContactEventData contactEventData);
         public void NotifyEventType(string eventType);

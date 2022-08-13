@@ -53,6 +53,30 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             await context.CallActivityAsync("EmailSender_OrderDetailsEmail", request);
         }
 
+        [FunctionName("ConsiderOrchestrator")]
+        public async Task ConsiderOrchestrator(
+            [OrchestrationTrigger] IDurableOrchestrationContext context,
+            [DurableClient] IDurableEntityClient entityClient
+        )
+        {
+            ExecutionContactRequest request = context.GetInput<ExecutionContactRequest>();
+            string instanceId = request.InstanceId;
+            var entityId = new EntityId("ExecutionContact", instanceId);
+          
+            // wait a time to send the offer again
+            DateTime deadline = context.CurrentUtcDateTime.Add(TimeSpan.FromMinutes(5));
+            await context.CreateTimer(deadline, CancellationToken.None);
+
+            var stateResponse = await entityClient.ReadEntityStateAsync<ExecutionContact>(entityId);
+            bool ExpiredOffer = stateResponse.EntityState.ExpiredOffer;
+
+            if (!ExpiredOffer)
+            {
+                ExecutionContactRequest requestEmail = context.GetInput<ExecutionContactRequest>();
+                await context.CallActivityAsync("EmailSender_RemainderEmail", requestEmail);
+            }
+        }
+
         [FunctionName("ExpiredOfferOrchestrator")]
         public async Task ExpiredOfferOrchestrator(
             [OrchestrationTrigger] IDurableOrchestrationContext context,
@@ -73,7 +97,8 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             {
                 await context.CallActivityAsync("EmailSender_ExpiredOffer", stateResponse.EntityState.ContactId);
             }
-            
+
+            context.SignalEntity(new EntityId("ExecutionContact", request.InstanceId),"expireOffer");
         }
 
 
@@ -174,15 +199,31 @@ namespace Ftl.DigitalMarketing.AzureFunctions
         public async Task<HttpResponseMessage> ConsiderAction(
             [HttpTrigger(AuthorizationLevel.Anonymous, "get")] HttpRequest req,
             [DurableClient] IDurableOrchestrationClient client,
+            [DurableClient] IDurableEntityClient entityClient,
             ILogger log)
         {
             string instanceId = req.Query["instanceId"];
+            var entityId = new EntityId("ExecutionContact", instanceId);
+            var stateResponse = await entityClient.ReadEntityStateAsync<ExecutionContact>(entityId);
+            bool ExpiredOffer = stateResponse.EntityState.ExpiredOffer;
+            string stage = stateResponse.EntityState.Stage;
 
-            await client.RaiseEventAsync(instanceId, "WelcomeEmail_Considered", true);
 
+            var stringContent = "The offer has expired";
+            
+            if (!ExpiredOffer)
+            {
+                stringContent = "<html><body>We will remaind you soon, stay tuned.</body></html>";
+                if (stage == "START")
+                {
+                    await entityClient.SignalEntityAsync<IExecutionContact>(entityId,
+                        p => p.UpdateStage("CONSIDER"));
+                }
+            }
+            
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("<html><body>We will remaind you soon, stay tuned.</body></html>", Encoding.UTF8, "text/html")
+                Content = new StringContent(stringContent, Encoding.UTF8, "text/html")
             };
         }
 
@@ -194,8 +235,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions
         {
             string instanceId = req.Query["instanceId"];
 
-            
-            await client.TerminateAsync(instanceId, "ClientUnsubscribe");
+            // TODO: stop all schedule work and add client to blocklist outbound email
 
             return new HttpResponseMessage(HttpStatusCode.OK)
             {

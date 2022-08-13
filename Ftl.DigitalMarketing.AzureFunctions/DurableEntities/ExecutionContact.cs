@@ -66,7 +66,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions.DurableEntities
             {
                 ContactId = contactId,
                 InstanceId = Entity.Current.EntityId.EntityKey,
-                WaitFor = TimeSpan.FromMinutes(5)
+                WaitFor = TimeSpan.FromMinutes(10)
             };
             Entity.Current.StartNewOrchestration("ExpiredOfferOrchestrator", expireRequest);
         }
@@ -111,6 +111,12 @@ namespace Ftl.DigitalMarketing.AzureFunctions.DurableEntities
                 else if (stage == "CONSIDER")
                 {
                     // create decision orchestration
+                    ExecutionContactRequest executionContactRequest = new()
+                    {
+                        ContactId = ContactId,
+                        InstanceId = Entity.Current.EntityId.EntityKey
+                    };
+                    Entity.Current.StartNewOrchestration("ConsiderOrchestrator", executionContactRequest);
                 }
             }
         }
@@ -118,6 +124,11 @@ namespace Ftl.DigitalMarketing.AzureFunctions.DurableEntities
         {
             OrderId = orderId;
             await UpdateStage("DECISION");
+        }
+
+        public void expireOffer()
+        {
+            ExpiredOffer = true;
         }
     }
 }
