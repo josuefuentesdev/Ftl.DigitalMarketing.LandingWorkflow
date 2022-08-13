@@ -24,4 +24,11 @@
 	  <None Include="Pages\OrderReceived.cshtml" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Content Update="Emails\ExpiredEmail.cshtml">
+	    <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+	    <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+	  </Content>
+	</ItemGroup>
+
 </Project>

@@ -34,68 +34,49 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             _backofficeClient = new("https://localhost:5001", _http);
         }
 
-        [FunctionName("WorkflowOrchestrator")]
-        public async Task RunOrchestrator(
-            [OrchestrationTrigger] IDurableOrchestrationContext context)
+        [FunctionName("WelcomeOrchestrator")]
+        public async Task WelcomeOrchestrator(
+            [OrchestrationTrigger] IDurableOrchestrationContext context
+        )
         {
-            WorkflowOrchestratorRequest request = context.GetInput<WorkflowOrchestratorRequest>();
-            int contactId = request.ContactId;
-            context.SetCustomStatus(new
-            {
-                stage = "START",
-                contactId
-            });
-
-
-            ExecutionContactRequest executionContactRequest = new ExecutionContactRequest
-            {
-                ContactId = contactId,
-                InstanceId = context.InstanceId
-            };
+            ExecutionContactRequest executionContactRequest = context.GetInput<ExecutionContactRequest>();
             await context.CallActivityAsync("EmailSender_WelcomeEmail", executionContactRequest);
+        }
 
+        [FunctionName("DecisionOrchestrator")]
+        public async Task DecisionOrchestrator(
+            [OrchestrationTrigger] IDurableOrchestrationContext context
+        )
+        {
+            ExecutionContactRequest executionContactRequest = context.GetInput<ExecutionContactRequest>();
+            await context.CallActivityAsync("EmailSender_OrderDetailsEmail", executionContactRequest);
+        }
 
-            DateTime dueTime = context.CurrentUtcDateTime.AddMinutes(5);
+        [FunctionName("ExpiredOfferOrchestrator")]
+        public async Task ExpiredOfferOrchestrator(
+            [OrchestrationTrigger] IDurableOrchestrationContext context,
+            [DurableClient] IDurableEntityClient entityClient
+        )
+        {
+            ExpireOfferRequest request = context.GetInput<ExpireOfferRequest>();
 
-            var welcomeEmailBuyedEvent = context.WaitForExternalEvent<bool>("WelcomeEmail_Buyed");
-            var welcomeEmailConsideredEvent = context.WaitForExternalEvent<bool>("WelcomeEmail_Considered");
-            var timeoutEvent = context.CreateTimer(dueTime, CancellationToken.None);
+            // wait until offert expire
+            DateTime deadline = context.CurrentUtcDateTime.Add(request.WaitFor);
+            await context.CreateTimer(deadline, CancellationToken.None);
 
-            var welcomeEmailResult = await Task.WhenAny(welcomeEmailBuyedEvent, welcomeEmailConsideredEvent, timeoutEvent);
+            var stateResponse = await entityClient.ReadEntityStateAsync<ExecutionContact>(
+                new EntityId("ExecutionContact", request.InstanceId));
 
-            if (welcomeEmailResult == timeoutEvent)
+            // only notify if the client didn't buy
+            if (stateResponse.EntityState.Stage != "DECISION")
             {
-                context.SetCustomStatus(new
-                {
-                    stage = "TIMEOUT",
-                    contactId
-                });
+                await context.CallActivityAsync("EmailSender_ExpiredOffer", stateResponse.EntityState.ContactId);
             }
-            else if (welcomeEmailResult == welcomeEmailConsideredEvent)
-            {
-                context.SetCustomStatus(new
-                {
-                    stage = "CONSIDER",
-                    contactId
-                });
-                DateTime reminderTime = context.CurrentUtcDateTime.AddMinutes(5);
-                await context.CreateTimer(reminderTime, CancellationToken.None);
-                await context.CallActivityAsync("EmailSender_RemainderEmail", executionContactRequest);
-            }
-            else if (welcomeEmailResult == welcomeEmailBuyedEvent)
-            {
-                context.SetCustomStatus(new
-                {
-                    stage = "DECISION",
-                    contactId
-                });
-                await context.CallActivityAsync("EmailSender_OrderDetailsEmail", executionContactRequest);
-            }
+            
         }
 
 
-
-        [FunctionName("WorkflowOrchestrator_HttpStartFromLandingPage")]
+        [FunctionName("HttpStartFromLandingPage")]
         public async Task<HttpResponseMessage> HttpStart(
             [HttpTrigger(AuthorizationLevel.Anonymous, "post")] HttpRequestMessage req,
             [DurableClient] IDurableOrchestrationClient client,
@@ -114,18 +95,10 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             
             string instanceId = Guid.NewGuid().ToString();
             var entityId = new EntityId("ExecutionContact", instanceId);
+            log.LogInformation($"ExecutionContact id= '{entityId}'.");
+            
             await entityClient.SignalEntityAsync(entityId, "SetContactId", contactId);
             log.LogInformation($"New ContactId = '{contactId}'.");
-
-            // Start Workflow
-            WorkflowOrchestratorRequest workflowRequest = new();
-            workflowRequest.ContactId = contactId;
-            workflowRequest.Email = request.Email;
-            workflowRequest.InstanceId = instanceId;
-
-            string responseInstanceId = await client.StartNewAsync("WorkflowOrchestrator", instanceId, workflowRequest);
-            log.LogInformation($"Started orchestration with responseID = '{responseInstanceId}'.");
-            await entityClient.SignalEntityAsync(entityId, "NotifyEventType", "ORCHESTRATION_STARTED");
 
             HttpResponseMessage responseMsg = new HttpResponseMessage(HttpStatusCode.OK);
             EmailLeadResponse response = new();
@@ -142,68 +115,43 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             ILogger log)
         {
             string instanceId = req.Query["instanceId"];
+            var entityId = new EntityId("ExecutionContact", instanceId);
 
-            DurableOrchestrationStatus status = await client.GetStatusAsync(instanceId);
+            await entityClient.SignalEntityAsync<IExecutionContact>(entityId,
+                p => p.UpdateStage("DECISION"));
 
-            await entityClient.SignalEntityAsync<IExecutionContact>(instanceId,
-                p => p.UpdateStage("BUY"));
+            var stateResponse = await entityClient.ReadEntityStateAsync<ExecutionContact>(
+                entityId);
+            int orderId = stateResponse.EntityState.OrderId;
+            bool ExpiredOffer = stateResponse.EntityState.ExpiredOffer;
+            string stage = stateResponse.EntityState.Stage;
 
+            var stringContent = "<html><body>Something fail</body></html>";
 
-            // if the workflow is completed, return the view with the already created orderId
-            if (status.RuntimeStatus != OrchestrationRuntimeStatus.Completed)
+            if (ExpiredOffer)
             {
-                if (status.CustomStatus["stage"].ToString() == "START")
-                {
-                    var contactId = Int32.Parse(status.CustomStatus["contactId"].ToString());
-                    CreateOrderDto createOrderDto = new()
-                    {
-                        ContactId = contactId,
-                        Status = "PENDING"
-                    };
-                    int orderId = await _backofficeClient.CreateOrderAsync(createOrderDto);
-                    await client.RaiseEventAsync(instanceId, "WelcomeEmail_Buyed", true);
-                    OrderReceived order = new()
-                    {
-                        OrderId = orderId,
-                        LeavePageActionUrl = "https://www.samsung.com/us/smartphones/galaxy-z-fold3-5g/"
-                    };
-                    var invoiceHtml = await RazorTemplateEngine.RenderAsync("/Pages/OrderReceived.cshtml", order);
-
-                    return new HttpResponseMessage(HttpStatusCode.OK)
-                    {
-                        Content = new StringContent(invoiceHtml, Encoding.UTF8, "text/html")
-                    };
-                }
+                stringContent = "<html><body>The offer has expired</body></html>";
             }
-
-            if (status.CustomStatus["stage"].ToString() == "TIMEOUT")
+            // even if the offer expired, we send the last order for the current execution
+            if (orderId != 0 && stage == "DECISION")
             {
-                return new HttpResponseMessage(HttpStatusCode.OK)
+                OrderReceived order = new()
                 {
-                    Content = new StringContent("<html><body>The offer has expired</body></html>", Encoding.UTF8, "text/html")
+                    OrderId = orderId,
+                    LeavePageActionUrl = "https://www.samsung.com/us/smartphones/galaxy-z-fold3-5g/"
                 };
-            }
-            else if (status.CustomStatus["stage"].ToString() == "CONSIDER")
+                stringContent = await RazorTemplateEngine.RenderAsync("/Pages/OrderReceived.cshtml", order);
+            } else
             {
-                return new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent("<html><body>You still has a chance to buy, call us to (0800) XXXXX.</body></html>", Encoding.UTF8, "text/html")
-                };
+                stringContent = "<html><body>Your order was placed, review your email for more details.</body></html>";
             }
-            else if (status.CustomStatus["stage"].ToString() == "DECISION")
+
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                return new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent("<html><body>Product was bought. Please check your email for the order details.</body></html>", Encoding.UTF8, "text/html")
-                };
-            }
-            else
-            {
-                return new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent("<html><body>Welcome Email was not bought. Please consider buying it.</body></html>", Encoding.UTF8, "text/html")
-                };
-            }
+                Content = new StringContent(stringContent, Encoding.UTF8, "text/html")
+            };
+
         }
 
         [FunctionName("WelcomeEmail_ConsiderAction")]
@@ -230,7 +178,6 @@ namespace Ftl.DigitalMarketing.AzureFunctions
         {
             string instanceId = req.Query["instanceId"];
 
-
             
             await client.TerminateAsync(instanceId, "ClientUnsubscribe");
 
@@ -240,25 +187,5 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             };
         }
 
-        [FunctionName("NotifyContactEvent")]
-        public async Task<HttpResponseMessage> NotifyContactEvent([HttpTrigger(AuthorizationLevel.Anonymous, "post")] HttpRequestMessage req, ILogger log, [DurableClient] IDurableOrchestrationClient client)
-        {
-            var content = req.Content;
-            string jsonContent = await content.ReadAsStringAsync();
-            NotifyContactEventRequest contactEventData = JsonConvert.DeserializeObject<NotifyContactEventRequest>(jsonContent);
-
-            DurableOrchestrationStatus status = await client.GetStatusAsync(contactEventData.InstanceId);
-            if (status == null) return new HttpResponseMessage(HttpStatusCode.BadRequest);
-
-            var contactId = Int32.Parse(status.CustomStatus["contactId"].ToString());
-
-            CreateContactEventDto contactEventDto = new();
-            contactEventDto.ContactId = contactId;
-            contactEventDto.EventType = contactEventData.EventType;
-
-            
-            var _ = await _backofficeClient.CreateContactEventAsync(contactEventDto);
-            return new HttpResponseMessage(HttpStatusCode.OK);
-        }
     }
 }

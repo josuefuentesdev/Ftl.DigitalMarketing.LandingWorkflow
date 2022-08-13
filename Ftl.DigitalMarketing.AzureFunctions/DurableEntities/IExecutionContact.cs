@@ -14,6 +14,6 @@ namespace Ftl.DigitalMarketing.AzureFunctions.DurableEntities
         public void Notify(ContactEventData contactEventData);
         public void NotifyEventType(string EventType);
         public Task UpdateStage(string stage);
-
+        public Task<int> GetOrderId();
     }
 }

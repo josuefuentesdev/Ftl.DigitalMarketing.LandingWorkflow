@@ -32,10 +32,10 @@ namespace Ftl.DigitalMarketing.AzureFunctions
         }
 
         [FunctionName("EmailSender_WelcomeEmail")]
-        public async Task<string> SendWelcomelEmail([ActivityTrigger] ExecutionContactRequest request, ILogger log)
+        public async Task SendWelcomelEmail([ActivityTrigger] ExecutionContactRequest request, ILogger log)
         {
             var contact = await _backofficeClient.GetContactByIdAsync(request.ContactId);
-            if (contact == null) return "ERROR-INVALID-CONTACT";
+            if (contact == null) return;
 
 
             WelcomeEmailModel welcomeEmailModel = new();
@@ -51,16 +51,30 @@ namespace Ftl.DigitalMarketing.AzureFunctions
                 .Subject("Welcome to Fictitel")
                 .Body(invoiceHtml, true)
                 .SendAsync();
+        }
 
-            return $"Hello {response.Successful} {response.MessageId}!";
+        [FunctionName("EmailSender_ExpiredOffer")]
+        public async Task SendExpiredOffer([ActivityTrigger] int contactId, ILogger log)
+        {
+            var contact = await _backofficeClient.GetContactByIdAsync(contactId);
+            if (contact == null) return;
+
+
+            var invoiceHtml = await RazorTemplateEngine.RenderAsync("/Emails/ExpiredEmail.cshtml");
+
+            var response = await _fluentEmail
+                .To(contact.Email)
+                .Subject("Expired Offer :(")
+                .Body(invoiceHtml, true)
+                .SendAsync();
         }
 
 
         [FunctionName("EmailSender_OrderDetailsEmail")]
-        public async Task<string> SendOrderDetailsEmail([ActivityTrigger] ExecutionContactRequest request, ILogger log)
+        public async Task SendOrderDetailsEmail([ActivityTrigger] ExecutionContactRequest request, ILogger log)
         {
             var contact = await _backofficeClient.GetContactByIdAsync(request.ContactId);
-            if (contact == null) return "ERROR-INVALID-CONTACT";
+            if (contact == null) return;
             
             OrderDetailsEmailModel orderEmailModel = new();
             orderEmailModel.UnsuscribeUrl = $"http://{websiteHostname}/api/UnsubscribeAction?instanceId={request.InstanceId}";
@@ -73,7 +87,6 @@ namespace Ftl.DigitalMarketing.AzureFunctions
                 .Body(invoiceHtml, true)
                 .SendAsync();
 
-            return $"Hello {response.Successful} {response.MessageId}!";
         }
 
         [FunctionName("EmailSender_RemainderEmail")]
