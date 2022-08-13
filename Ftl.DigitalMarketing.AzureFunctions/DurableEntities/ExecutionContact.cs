@@ -1,6 +1,7 @@
 ﻿using DurableTask.Core.Stats;
 using Ftl.DigitalMarketing.ApiClientServices;
 using Ftl.DigitalMarketing.AzureFunctions.Models;
+using Ftl.DigitalMarketing.RazorTemplates.Emails;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.DurableTask;
 using Newtonsoft.Json;
@@ -47,15 +48,15 @@ namespace Ftl.DigitalMarketing.AzureFunctions.DurableEntities
         [JsonProperty("expiredOffer")]
         public bool ExpiredOffer { get; set; }
 
-        public void SetContactId(int ContactId)
+        public void SetContactId(int contactId)
         {
-            this.ContactId = ContactId;
+            this.ContactId = contactId;
             
             NotifyEventType("CONTACT CREATED");
 
             ExecutionContactRequest executionContactRequest = new()
             {
-                ContactId = ContactId,
+                ContactId = contactId,
                 InstanceId = Entity.Current.EntityId.EntityKey
             };
             Entity.Current.StartNewOrchestration("WelcomeOrchestrator", executionContactRequest);
@@ -63,7 +64,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions.DurableEntities
             // expire the offer after some time
             ExpireOfferRequest expireRequest = new()
             {
-                ContactId = ContactId,
+                ContactId = contactId,
                 InstanceId = Entity.Current.EntityId.EntityKey,
                 WaitFor = TimeSpan.FromMinutes(5)
             };
@@ -79,12 +80,12 @@ namespace Ftl.DigitalMarketing.AzureFunctions.DurableEntities
             });
         }
 
-        public void NotifyEventType(string EventType)
+        public void NotifyEventType(string eventType)
         {
             var _ = _backofficeClient.CreateContactEventAsync(new CreateContactEventDto()
             {
                 ContactId = ContactId,
-                EventType = EventType
+                EventType = eventType
             });
         }
 
@@ -98,20 +99,14 @@ namespace Ftl.DigitalMarketing.AzureFunctions.DurableEntities
                 Stage = stage;
                 if (stage == "DECISION")
                 {
-                    // create order
-                    CreateOrderDto createOrderDto = new()
-                    {
-                        ContactId = ContactId,
-                        Status = "PENDING"
-                    };
-                    OrderId = await _backofficeClient.CreateOrderAsync(createOrderDto);
                     // start decision orchestration 
-                    ExecutionContactRequest executionContactRequest = new()
+                    OrderDetailsEmailModel request = new()
                     {
+                        InstanceId = Entity.Current.EntityId.EntityKey,
                         ContactId = ContactId,
-                        InstanceId = Entity.Current.EntityId.EntityKey
+                        OrderId = OrderId,
                     };
-                    Entity.Current.StartNewOrchestration("DecisionOrchestrator", executionContactRequest);
+                    Entity.Current.StartNewOrchestration("DecisionOrchestrator", request);
                 }
                 else if (stage == "CONSIDER")
                 {
@@ -119,10 +114,10 @@ namespace Ftl.DigitalMarketing.AzureFunctions.DurableEntities
                 }
             }
         }
-
-        public async Task<int> GetOrderId()
+        public async Task SetOrderId(int orderId)
         {
-            return OrderId;
+            OrderId = orderId;
+            await UpdateStage("DECISION");
         }
     }
 }

@@ -3,6 +3,7 @@ using Ftl.DigitalMarketing.AzureFunctions.Contract.Requests;
 using Ftl.DigitalMarketing.AzureFunctions.Contract.Responses;
 using Ftl.DigitalMarketing.AzureFunctions.DurableEntities;
 using Ftl.DigitalMarketing.AzureFunctions.Models;
+using Ftl.DigitalMarketing.RazorTemplates.Emails;
 using Ftl.DigitalMarketing.RazorTemplates.Pages;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Azure.WebJobs;
@@ -48,8 +49,8 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             [OrchestrationTrigger] IDurableOrchestrationContext context
         )
         {
-            ExecutionContactRequest executionContactRequest = context.GetInput<ExecutionContactRequest>();
-            await context.CallActivityAsync("EmailSender_OrderDetailsEmail", executionContactRequest);
+            OrderDetailsEmailModel request = context.GetInput<OrderDetailsEmailModel>();
+            await context.CallActivityAsync("EmailSender_OrderDetailsEmail", request);
         }
 
         [FunctionName("ExpiredOfferOrchestrator")]
@@ -117,11 +118,9 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             string instanceId = req.Query["instanceId"];
             var entityId = new EntityId("ExecutionContact", instanceId);
 
-            await entityClient.SignalEntityAsync<IExecutionContact>(entityId,
-                p => p.UpdateStage("DECISION"));
-
             var stateResponse = await entityClient.ReadEntityStateAsync<ExecutionContact>(
                 entityId);
+            int contactId = stateResponse.EntityState.ContactId;
             int orderId = stateResponse.EntityState.OrderId;
             bool ExpiredOffer = stateResponse.EntityState.ExpiredOffer;
             string stage = stateResponse.EntityState.Stage;
@@ -132,8 +131,28 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             {
                 stringContent = "<html><body>The offer has expired</body></html>";
             }
+            // create the order
+            if (stage != "DECISION" && !ExpiredOffer)
+            {
+                CreateOrderDto createOrderDto = new()
+                {
+                    ContactId = contactId,
+                    Status = "PENDING"
+                };
+                var newOrderId = await _backofficeClient.CreateOrderAsync(createOrderDto);
+
+                await entityClient.SignalEntityAsync<IExecutionContact>(entityId,
+                    p => p.SetOrderId(newOrderId));
+                
+                OrderReceived order = new()
+                {
+                    OrderId = newOrderId,
+                    LeavePageActionUrl = "https://www.samsung.com/us/smartphones/galaxy-z-fold3-5g/"
+                };
+                stringContent = await RazorTemplateEngine.RenderAsync("/Pages/OrderReceived.cshtml", order);
+            } 
             // even if the offer expired, we send the last order for the current execution
-            if (orderId != 0 && stage == "DECISION")
+            else if (stage == "DECISION" && orderId != 0)
             {
                 OrderReceived order = new()
                 {
@@ -141,12 +160,9 @@ namespace Ftl.DigitalMarketing.AzureFunctions
                     LeavePageActionUrl = "https://www.samsung.com/us/smartphones/galaxy-z-fold3-5g/"
                 };
                 stringContent = await RazorTemplateEngine.RenderAsync("/Pages/OrderReceived.cshtml", order);
-            } else
-            {
-                stringContent = "<html><body>Your order was placed, review your email for more details.</body></html>";
             }
 
-
+            
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(stringContent, Encoding.UTF8, "text/html")

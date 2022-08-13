@@ -71,13 +71,14 @@ namespace Ftl.DigitalMarketing.AzureFunctions
 
 
         [FunctionName("EmailSender_OrderDetailsEmail")]
-        public async Task SendOrderDetailsEmail([ActivityTrigger] ExecutionContactRequest request, ILogger log)
+        public async Task SendOrderDetailsEmail([ActivityTrigger] OrderDetailsEmailModel request, ILogger log)
         {
             var contact = await _backofficeClient.GetContactByIdAsync(request.ContactId);
             if (contact == null) return;
             
             OrderDetailsEmailModel orderEmailModel = new();
             orderEmailModel.UnsuscribeUrl = $"http://{websiteHostname}/api/UnsubscribeAction?instanceId={request.InstanceId}";
+            orderEmailModel.OrderId = request.OrderId;
 
             var invoiceHtml = await RazorTemplateEngine.RenderAsync("/Emails/OrderDetailsEmail.cshtml", orderEmailModel);
 

@@ -10,10 +10,10 @@ namespace Ftl.DigitalMarketing.AzureFunctions.DurableEntities
 {
     public interface IExecutionContact
     {
-        public void SetContactId(int ContactId);
+        public void SetContactId(int contactId);
+        public Task SetOrderId(int orderId);
         public void Notify(ContactEventData contactEventData);
-        public void NotifyEventType(string EventType);
+        public void NotifyEventType(string eventType);
         public Task UpdateStage(string stage);
-        public Task<int> GetOrderId();
     }
 }
