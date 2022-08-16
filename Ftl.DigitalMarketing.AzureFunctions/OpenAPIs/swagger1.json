@@ -17,17 +17,26 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContactEventItem"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactEventItem"
+                  }
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContactEventItem"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactEventItem"
+                  }
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContactEventItem"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactEventItem"
+                  }
                 }
               }
             }
@@ -201,17 +210,26 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContactItem"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactItem"
+                  }
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContactItem"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactItem"
+                  }
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContactItem"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactItem"
+                  }
                 }
               }
             }
@@ -390,7 +408,33 @@
         ],
         "responses": {
           "200": {
-            "description": "Success"
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrderItem"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrderItem"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrderItem"
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -710,6 +754,59 @@
           "status": {
             "type": "string",
             "nullable": true
+          },
+          "netPrice": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "OrderItem": {
+        "type": "object",
+        "properties": {
+          "createdBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastModifiedBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastModified": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "contactId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "contactEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "executionId": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "netPrice": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -751,6 +848,11 @@
           },
           "status": {
             "type": "string",
+            "nullable": true
+          },
+          "netPrice": {
+            "type": "number",
+            "format": "double",
             "nullable": true
           }
         },

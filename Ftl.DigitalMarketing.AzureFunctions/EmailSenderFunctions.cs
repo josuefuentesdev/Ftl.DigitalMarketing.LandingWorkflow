@@ -71,10 +71,10 @@ namespace Ftl.DigitalMarketing.AzureFunctions
 
         
         [FunctionName("EmailSender_OrderDetailsEmail")]
-        public async Task SendOrderDetailsEmail([ActivityTrigger] OrderDetailsEmailModel request, ILogger log)
+        public async Task<bool> SendOrderDetailsEmail([ActivityTrigger] OrderDetailsEmailModel request, ILogger log)
         {
             var contact = await _backofficeClient.GetContactByIdAsync(request.ContactId);
-            if (contact == null) return;
+            if (contact == null) return false;
             
             OrderDetailsEmailModel orderEmailModel = new();
             orderEmailModel.UnsuscribeUrl = $"http://{websiteHostname}/api/UnsubscribeAction?instanceId={request.InstanceId}";
@@ -88,6 +88,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions
                 .Body(invoiceHtml, true)
                 .SendAsync();
 
+            return response.Successful;
         }
 
         [FunctionName("EmailSender_RemainderEmail")]

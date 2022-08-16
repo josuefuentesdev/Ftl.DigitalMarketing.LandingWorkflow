@@ -50,7 +50,11 @@ namespace Ftl.DigitalMarketing.AzureFunctions
         )
         {
             OrderDetailsEmailModel request = context.GetInput<OrderDetailsEmailModel>();
-            await context.CallActivityAsync("EmailSender_OrderDetailsEmail", request);
+            bool emailSend = await context.CallActivityAsync<bool>("EmailSender_OrderDetailsEmail", request);
+            if (emailSend)
+            {
+                await _backofficeClient.UpdateOrderAsync(request.OrderId, new UpdateOrderDto() { Status = "SENT" });
+            }
         }
 
         [FunctionName("ConsiderOrchestrator")]
@@ -162,7 +166,8 @@ namespace Ftl.DigitalMarketing.AzureFunctions
                 CreateOrderDto createOrderDto = new()
                 {
                     ContactId = contactId,
-                    Status = "PENDING"
+                    Status = "PENDING",
+                    NetPrice = 100.00
                 };
                 var newOrderId = await _backofficeClient.CreateOrderAsync(createOrderDto);
 

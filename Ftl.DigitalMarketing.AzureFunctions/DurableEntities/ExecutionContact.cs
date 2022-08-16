@@ -52,7 +52,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions.DurableEntities
         {
             this.ContactId = contactId;
             
-            NotifyEventType("CONTACT CREATED");
+            NotifyEventType("LEAD");
 
             ExecutionContactRequest executionContactRequest = new()
             {
@@ -107,6 +107,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions.DurableEntities
                         OrderId = OrderId,
                     };
                     Entity.Current.StartNewOrchestration("DecisionOrchestrator", request);
+                    NotifyEventType("DECISION");
                 }
                 else if (stage == "CONSIDER")
                 {
@@ -117,6 +118,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions.DurableEntities
                         InstanceId = Entity.Current.EntityId.EntityKey
                     };
                     Entity.Current.StartNewOrchestration("ConsiderOrchestrator", executionContactRequest);
+                    NotifyEventType("CONSIDER");
                 }
             }
         }
