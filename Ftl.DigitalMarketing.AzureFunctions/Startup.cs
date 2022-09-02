@@ -1,4 +1,5 @@
 ﻿using FluentEmail.MailKitSmtp;
+using Ftl.DigitalMarketing.AzureFunctions.Services.Recaptcha;
 using MailKit.Security;
 using Microsoft.Azure.Functions.Extensions.DependencyInjection;
 using Microsoft.Azure.WebJobs.Extensions.DurableTask;
@@ -18,9 +19,14 @@ namespace Ftl.DigitalMarketing.AzureFunctions
         public override void Configure(IFunctionsHostBuilder builder)
         {
             builder.Services.AddHttpClient();
-            
+
+            builder.Services.AddHttpClient<IRecaptchaVerifierService, RecaptchaVerifierService>(client =>
+            {
+                client.BaseAddress = new Uri("https://www.google.com/recaptcha/api/siteverify");
+            });
+
             builder.Services
-                .AddFluentEmail("noreply@josuefuentesdev.com")
+                .AddFluentEmail("fictitel@josuefuentesdev.com")
                 .AddMailKitSender(new SmtpClientOptions
                 {
                     Server = Environment.GetEnvironmentVariable("SmtpHost"),

@@ -38,4 +38,7 @@
     </None>
     <None Update="OpenAPIs\swagger.json" ClassName="BackofficeClientApi" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Contract\Requests\" />
+  </ItemGroup>
 </Project>

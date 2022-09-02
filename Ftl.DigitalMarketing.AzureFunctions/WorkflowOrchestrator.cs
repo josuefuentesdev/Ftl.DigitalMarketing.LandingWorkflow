@@ -1,8 +1,8 @@
 ﻿using Ftl.DigitalMarketing.ApiClientServices;
-using Ftl.DigitalMarketing.AzureFunctions.Contract.Requests;
 using Ftl.DigitalMarketing.AzureFunctions.Contract.Responses;
 using Ftl.DigitalMarketing.AzureFunctions.DurableEntities;
 using Ftl.DigitalMarketing.AzureFunctions.Models;
+using Ftl.DigitalMarketing.AzureFunctions.Services.Recaptcha;
 using Ftl.DigitalMarketing.RazorTemplates.Emails;
 using Ftl.DigitalMarketing.RazorTemplates.Pages;
 using Microsoft.AspNetCore.Http;
@@ -28,11 +28,13 @@ namespace Ftl.DigitalMarketing.AzureFunctions
     {
         private readonly HttpClient _http;
         private BackofficeApiClient _backofficeClient;
+        private IRecaptchaVerifierService recaptchaVerifierService;
 
-        public WorkflowOrchestrator(HttpClient http)
+        public WorkflowOrchestrator(HttpClient http, IRecaptchaVerifierService recaptchaVerifierService)
         {
             _http = http;
-            _backofficeClient = new("https://localhost:5001", _http);
+            _backofficeClient = new(Environment.GetEnvironmentVariable("BACKOFFICE_URL"), _http);
+            this.recaptchaVerifierService = recaptchaVerifierService;
         }
 
         [FunctionName("WelcomeOrchestrator")]
@@ -113,13 +115,26 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             [DurableClient] IDurableEntityClient entityClient,
             ILogger log)
         {
-            var content = req.Content;
-            string jsonContent = await content.ReadAsStringAsync();
-            EmailLeadRequest request = JsonConvert.DeserializeObject<EmailLeadRequest>(jsonContent);
+            var formdata = await req.Content.ReadAsFormDataAsync();
+            string email = formdata["email"];
+            string recaptchaResponse = formdata["g-recaptcha-response"];
+            //EmailLeadRequest request = JsonConvert.DeserializeObject<EmailLeadRequest>(jsonContent);
+
+            // validate recatpcha
+            //bool isValidRequest = await recaptchaVerifierService.ValidatedRequest(recaptchaResponse);
+            //if(!isValidRequest)
+            //{
+            //    HttpResponseMessage errorResponseMsg = new HttpResponseMessage(HttpStatusCode.BadRequest);
+            //    EmailLeadResponse errorResponse = new();
+            //    errorResponse.Success = false;
+            //    errorResponse.Message = "bots not allowed";
+            //    errorResponseMsg.Content = new StringContent(JsonConvert.SerializeObject(errorResponse));
+            //    return errorResponseMsg;
+            //}
 
             CreateContactDto contact = new()
             {
-                Email = request.Email
+                Email = email
             };
             var contactId = await _backofficeClient.CreateContactAsync(contact);
             
@@ -132,7 +147,9 @@ namespace Ftl.DigitalMarketing.AzureFunctions
 
             HttpResponseMessage responseMsg = new HttpResponseMessage(HttpStatusCode.OK);
             EmailLeadResponse response = new();
-            response.ContactId = contactId;
+            response.Success = true;
+            response.Message = "OK";
+            //response.ContactId = contactId;
             responseMsg.Content = new StringContent(JsonConvert.SerializeObject(response));
             return responseMsg;
         }

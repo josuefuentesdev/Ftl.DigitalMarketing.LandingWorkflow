@@ -22,19 +22,20 @@ namespace Ftl.DigitalMarketing.AzureFunctions
         private readonly HttpClient _http;
         private BackofficeApiClient _backofficeClient;
         string websiteHostname;
+        string token;
 
         public EmailSenderFunctions(IFluentEmail fluentEmail, HttpClient http)
         {
             _fluentEmail = fluentEmail;
             _http = http;
-            _backofficeClient = new("https://localhost:5001", _http);
-            websiteHostname = Environment.GetEnvironmentVariable("WEBSITE_HOSTNAME");
+            _backofficeClient = new(Environment.GetEnvironmentVariable("BACKOFFICE_URL"), _http);
+            token = Environment.GetEnvironmentVariable("CONTACT_TOKEN");
         }
 
         [FunctionName("EmailSender_WelcomeEmail")]
         public async Task SendWelcomelEmail([ActivityTrigger] ExecutionContactRequest request, ILogger log)
         {
-            var contact = await _backofficeClient.GetContactByIdAsync(request.ContactId);
+            var contact = await _backofficeClient.GetContactByIdAsync(request.ContactId, token);
             if (contact == null) return;
 
 
@@ -56,7 +57,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions
         [FunctionName("EmailSender_ExpiredOffer")]
         public async Task SendExpiredOffer([ActivityTrigger] int contactId, ILogger log)
         {
-            var contact = await _backofficeClient.GetContactByIdAsync(contactId);
+            var contact = await _backofficeClient.GetContactByIdAsync(contactId, token);
             if (contact == null) return;
 
 
@@ -73,7 +74,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions
         [FunctionName("EmailSender_OrderDetailsEmail")]
         public async Task<bool> SendOrderDetailsEmail([ActivityTrigger] OrderDetailsEmailModel request, ILogger log)
         {
-            var contact = await _backofficeClient.GetContactByIdAsync(request.ContactId);
+            var contact = await _backofficeClient.GetContactByIdAsync(request.ContactId, token);
             if (contact == null) return false;
             
             OrderDetailsEmailModel orderEmailModel = new();
@@ -94,7 +95,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions
         [FunctionName("EmailSender_RemainderEmail")]
         public async Task SendRemainderEmail([ActivityTrigger] ExecutionContactRequest request, ILogger log)
         {
-            var contact = await _backofficeClient.GetContactByIdAsync(request.ContactId);
+            var contact = await _backofficeClient.GetContactByIdAsync(request.ContactId, token);
             if (contact == null) return;
 
             RemainderEmailModel remainderEmailModel = new();
