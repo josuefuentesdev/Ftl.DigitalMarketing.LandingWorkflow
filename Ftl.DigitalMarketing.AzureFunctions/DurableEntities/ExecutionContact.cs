@@ -32,7 +32,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions.DurableEntities
         public ExecutionContact(IHttpClientFactory factory, IDurableClient durableClient)
         {
             _client = factory?.CreateClient();
-            if (_client != null) _backofficeClient = new("https://localhost:5001", _client);
+            if (_client != null) _backofficeClient = new(Environment.GetEnvironmentVariable("BACKOFFICE_URL") ?? "https://localhost:5001", _client);
             _durableClient = durableClient;
         }
 
