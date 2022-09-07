@@ -21,8 +21,8 @@ namespace Ftl.DigitalMarketing.AzureFunctions
         private IFluentEmail _fluentEmail;
         private readonly HttpClient _http;
         private BackofficeApiClient _backofficeClient;
-        string websiteHostname;
-        string token;
+        private string websiteHostname;
+        private string token;
 
         public EmailSenderFunctions(IFluentEmail fluentEmail, HttpClient http)
         {
@@ -30,6 +30,7 @@ namespace Ftl.DigitalMarketing.AzureFunctions
             _http = http;
             _backofficeClient = new(Environment.GetEnvironmentVariable("BACKOFFICE_URL"), _http);
             token = Environment.GetEnvironmentVariable("CONTACT_TOKEN");
+            websiteHostname = Environment.GetEnvironmentVariable("WEBSITE_HOSTNAME");
         }
 
         [FunctionName("EmailSender_WelcomeEmail")]
@@ -110,7 +111,6 @@ namespace Ftl.DigitalMarketing.AzureFunctions
                 .Subject("You are very close, to be blazingly fast...")
                 .Body(invoiceHtml, true)
                 .SendAsync();
-
         }
     }
 }
